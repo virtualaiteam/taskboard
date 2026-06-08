@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taskboard</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e1e4e8;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+        .header .subtitle {
+            font-size: 12px;
+            color: #8b949e;
+            margin-top: 2px;
+        }
+        .header-actions { display: flex; gap: 8px; }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            background: #21262d;
+            color: #c9d1d9;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { background: #30363d; border-color: #8b949e; }
+        .btn-primary {
+            background: #238636;
+            border-color: #2ea043;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-danger {
+            background: #da3633;
+            border-color: #f85149;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #f85149; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        /* Main Content */
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+        /* Board List */
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .board-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            transition: border-color 0.15s;
+        }
+        .board-card:hover { border-color: #58a6ff; }
+        .board-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+        .board-card p { color: #8b949e; font-size: 13px; line-height: 1.5; }
+        .board-card .meta { margin-top: 12px; font-size: 11px; color: #6e7681; }
+        .board-card .actions { margin-top: 12px; display: flex; gap: 8px; }
+        .board-card a { text-decoration: none; color: inherit; }
+        .board-card a:hover h3 { color: #58a6ff; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 480px;
+        }
+        .modal h2 { font-size: 18px; margin-bottom: 16px; }
+        .modal label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 4px; }
+        .modal input, .modal textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e1e4e8;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .modal textarea { min-height: 80px; resize: vertical; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8b949e;
+        }
+        .empty-state h2 { font-size: 24px; margin-bottom: 8px; color: #c9d1d9; }
+        .empty-state p { margin-bottom: 20px; }
+        .status-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: #1f6feb22;
+            color: #58a6ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>📋 Taskboard</h1>
+            <div class="subtitle">Autonomous AI Engineering Team — Demo App</div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="showCreateBoard()">+ New Board</button>
+            <a href="https://github.com/virtualaiteam/taskboard" class="btn" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <div class="container">
+        {% if boards %}
+            <div style="margin-top: 8px; font-size: 13px; color: #8b949e;">
+                <span class="status-badge">{{ boards|length }} board{{ 's' if boards|length != 1 }}</span>
+            </div>
+            <div class="board-grid">
+                {% for board in boards %}
+                <a href="/board/{{ board.id }}">
+                    <div class="board-card">
+                        <h3>{{ board.title }}</h3>
+                        {% if board.description %}
+                        <p>{{ board.description }}</p>
+                        {% endif %}
+                        <div class="meta">
+                            Created {{ board.created_at.strftime('%Y-%m-%d %H:%M') if board.created_at else '' }}
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-sm" onclick="event.preventDefault(); event.stopPropagation(); editBoard({{ board.id }}, '{{ board.title }}', '{{ board.description }}')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); deleteBoard({{ board.id }})">Delete</button>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h2>No boards yet</h2>
+                <p>Create your first Kanban board to get started.</p>
+                <button class="btn btn-primary" onclick="showCreateBoard()">+ Create Board</button>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Create/Edit Board Modal -->
+    <div class="modal-overlay" id="boardModal">
+        <div class="modal">
+            <h2 id="boardModalTitle">New Board</h2>
+            <form id="boardForm" onsubmit="return submitBoard(event)">
+                <input type="hidden" id="boardId" value="">
+                <label for="boardTitle">Title</label>
+                <input type="text" id="boardTitle" required placeholder="My Kanban Board">
+                <label for="boardDesc">Description</label>
+                <textarea id="boardDesc" placeholder="What is this board about?"></textarea>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('boardModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="boardSubmit">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showCreateBoard() {
+            document.getElementById('boardModalTitle').textContent = 'New Board';
+            document.getElementById('boardSubmit').textContent = 'Create';
+            document.getElementById('boardId').value = '';
+            document.getElementById('boardTitle').value = '';
+            document.getElementById('boardDesc').value = '';
+            document.getElementById('boardModal').classList.add('active');
+        }
+
+        function editBoard(id, title, desc) {
+            document.getElementById('boardModalTitle').textContent = 'Edit Board';
+            document.getElementById('boardSubmit').textContent = 'Save';
+            document.getElementById('boardId').value = id;
+            document.getElementById('boardTitle').value = title;
+            document.getElementById('boardDesc').value = desc;
+            document.getElementById('boardModal').classList.add('active');
+        }
+
+        function hideModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function submitBoard(event) {
+            event.preventDefault();
+            const id = document.getElementById('boardId').value;
+            const title = document.getElementById('boardTitle').value;
+            const desc = document.getElementById('boardDesc').value;
+
+            if (id) {
+                // Update
+                fetch('/api/boards/' + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title, description: desc})
+                }).then(r => {
+                    if (r.ok) location.reload();
+                });
+            } else {
+                // Create
+                fetch('/api/boards', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title, description: desc})
+                }).then(r => {
+                    if (r.ok) location.reload();
+                });
+            }
+            return false;
+        }
+
+        function deleteBoard(id) {
+            if (!confirm('Delete this board and all cards?')) return;
+            fetch('/api/boards/' + id, {method: 'DELETE'})
+                .then(r => { if (r.ok) location.reload(); });
+        }
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', e => {
+                if (e.target === el) el.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>

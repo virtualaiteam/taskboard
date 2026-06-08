@@ -1,0 +1,15 @@
+services:
+  taskboard:
+    build: .
+    container_name: taskboard
+    ports:
+      - "8001:8000"
+    volumes:
+      - taskboard_data:/app/data
+    environment:
+      - SENTRY_DSN=https://04297fabd2b2679fd5d3589ac38a59fd@o4511471055732736.ingest.de.sentry.io/4511480763973712
+      - ENVIRONMENT=production
+    restart: unless-stopped
+
+volumes:
+  taskboard_data:

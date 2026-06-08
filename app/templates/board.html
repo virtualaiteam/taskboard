@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ board.title }} — Taskboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e1e4e8;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header h1 { font-size: 20px; font-weight: 600; color: #f0f6fc; }
+        .header .subtitle { font-size: 12px; color: #8b949e; margin-top: 2px; }
+        .header-actions { display: flex; gap: 8px; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            background: #21262d;
+            color: #c9d1d9;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { background: #30363d; border-color: #8b949e; }
+        .btn-primary {
+            background: #238636;
+            border-color: #2ea043;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-danger {
+            background: #da3633;
+            border-color: #f85149;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #f85149; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 480px;
+        }
+        .modal h2 { font-size: 18px; margin-bottom: 16px; }
+        .modal label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 4px; }
+        .modal input, .modal textarea, .modal select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e1e4e8;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .modal textarea { min-height: 80px; resize: vertical; }
+        .modal select { cursor: pointer; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+        /* Kanban Board */
+        .board-wrapper {
+            padding: 24px;
+            overflow-x: auto;
+            min-height: calc(100vh - 80px);
+        }
+        .kanban {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            min-height: 400px;
+        }
+        .column {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            min-width: 280px;
+            max-width: 320px;
+            flex-shrink: 0;
+        }
+        .column-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .column-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+        .column-header .count {
+            font-size: 12px;
+            color: #8b949e;
+            background: #21262d;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .column-actions { display: flex; gap: 4px; }
+
+        .column-body {
+            padding: 8px;
+            min-height: 60px;
+        }
+
+        /* Cards */
+        .card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            cursor: grab;
+            transition: all 0.15s;
+            position: relative;
+        }
+        .card:hover {
+            border-color: #58a6ff;
+            background: #11161e;
+        }
+        .card:active { cursor: grabbing; }
+        .card h4 { font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #e1e4e8; }
+        .card p { font-size: 12px; color: #8b949e; line-height: 1.4; }
+        .card .card-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: none;
+            gap: 4px;
+        }
+        .card:hover .card-actions { display: flex; }
+        .card.dragging {
+            opacity: 0.5;
+            border: 2px dashed #58a6ff;
+        }
+        .column.drag-over .column-body {
+            background: #1c2333;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .add-card-btn {
+            width: 100%;
+            padding: 8px;
+            border: 1px dashed #30363d;
+            border-radius: 6px;
+            background: transparent;
+            color: #8b949e;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .add-card-btn:hover {
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .add-column-btn {
+            min-width: 280px;
+            max-width: 320px;
+            padding: 16px;
+            border: 2px dashed #30363d;
+            border-radius: 10px;
+            background: transparent;
+            color: #8b949e;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            height: fit-content;
+        }
+        .add-column-btn:hover {
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #238636;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 200;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { background: #da3633; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <a href="/" class="btn btn-sm">← Boards</a>
+            <div>
+                <h1>{{ board.title }}</h1>
+                {% if board.description %}
+                <div class="subtitle">{{ board.description }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-sm btn-danger" onclick="deleteBoard()">Delete Board</button>
+        </div>
+    </div>
+
+    <div class="board-wrapper">
+        <div class="kanban" id="kanban">
+            {% for col in board.columns %}
+            <div class="column" data-column-id="{{ col.id }}" ondrop="drop(event)" ondragover="allowDrop(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)">
+                <div class="column-header">
+                    <h3>{{ col.title }}</h3>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="count">{{ col.cards|length }}</span>
+                        <div class="column-actions">
+                            <button class="btn btn-sm" onclick="editColumn({{ col.id }}, '{{ col.title }}')">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteColumn({{ col.id }})">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-body">
+                    {% for card in col.cards %}
+                    <div class="card" draggable="true" data-card-id="{{ card.id }}" data-column-id="{{ col.id }}"
+                         ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+                        <div class="card-actions">
+                            <button class="btn btn-sm" onclick="event.stopPropagation(); showEditCard({{ card.id }}, '{{ card.title }}', '{{ card.description }}', {{ col.id }})">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteCard({{ card.id }})">🗑️</button>
+                        </div>
+                        <h4>{{ card.title }}</h4>
+                        {% if card.description %}
+                        <p>{{ card.description[:100] }}{% if card.description|length > 100 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    <button class="add-card-btn" onclick="showAddCard({{ col.id }})">+ Add Card</button>
+                </div>
+            </div>
+            {% endfor %}
+            <button class="add-column-btn" onclick="showAddColumn()">+ Add Column</button>
+        </div>
+    </div>
+
+    <!-- Card Modal -->
+    <div class="modal-overlay" id="cardModal">
+        <div class="modal">
+            <h2 id="cardModalTitle">New Card</h2>
+            <form id="cardForm" onsubmit="return submitCard(event)">
+                <input type="hidden" id="cardId" value="">
+                <input type="hidden" id="cardColumnId" value="">
+                <label for="cardTitle">Title</label>
+                <input type="text" id="cardTitle" required placeholder="Card title">
+                <label for="cardDesc">Description</label>
+                <textarea id="cardDesc" placeholder="Details..."></textarea>
+                <div id="cardMoveSection" style="display:none;">
+                    <label for="cardMoveColumn">Move to Column</label>
+                    <select id="cardMoveColumn">
+                        {% for col in board.columns %}
+                        <option value="{{ col.id }}">{{ col.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('cardModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="cardSubmit">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Column Modal -->
+    <div class="modal-overlay" id="columnModal">
+        <div class="modal">
+            <h2 id="columnModalTitle">New Column</h2>
+            <form id="columnForm" onsubmit="return submitColumn(event)">
+                <input type="hidden" id="columnId" value="">
+                <label for="columnTitle">Title</label>
+                <input type="text" id="columnTitle" required placeholder="Column name">
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideModal('columnModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="columnSubmit">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ── Drag and Drop ──
+        let draggedCard = null;
+
+        function allowDrop(e) { e.preventDefault(); }
+        function dragEnter(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+        function dragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+        function dragStart(e) {
+            draggedCard = e.currentTarget;
+            e.currentTarget.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+        function dragEnd(e) {
+            e.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+        }
+        function drop(e) {
+            e.preventDefault();
+            const column = e.currentTarget;
+            column.classList.remove('drag-over');
+            if (!draggedCard) return;
+
+            const cardId = draggedCard.dataset.cardId;
+            const newColumnId = column.dataset.columnId;
+            const oldColumnId = draggedCard.dataset.columnId;
+
+            if (newColumnId === oldColumnId) return;
+
+            // Optimistic UI update
+            const body = column.querySelector('.column-body');
+            const addBtn = body.querySelector('.add-card-btn');
+            body.insertBefore(draggedCard, addBtn);
+            draggedCard.dataset.columnId = newColumnId;
+            updateColumnCounts();
+
+            // API call
+            fetch('/api/cards/' + cardId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({column_id: parseInt(newColumnId)})
+            }).then(r => {
+                if (!r.ok) {
+                    // Rollback
+                    location.reload();
+                    showToast('Failed to move card', true);
+                } else {
+                    showToast('Card moved to ' + column.querySelector('h3').textContent);
+                }
+            });
+        }
+
+        function showToast(msg, isError) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast' + (isError ? ' error' : '');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2500);
+        }
+
+        function updateColumnCounts() {
+            document.querySelectorAll('.column').forEach(col => {
+                const count = col.querySelectorAll('.card').length;
+                col.querySelector('.count').textContent = count;
+            });
+        }
+
+        // ── Card CRUD ──
+        function showAddCard(columnId) {
+            document.getElementById('cardModalTitle').textContent = 'New Card';
+            document.getElementById('cardSubmit').textContent = 'Add';
+            document.getElementById('cardId').value = '';
+            document.getElementById('cardColumnId').value = columnId;
+            document.getElementById('cardTitle').value = '';
+            document.getElementById('cardDesc').value = '';
+            document.getElementById('cardMoveSection').style.display = 'none';
+            document.getElementById('cardModal').classList.add('active');
+        }
+
+        function showEditCard(cardId, title, desc, colId) {
+            document.getElementById('cardModalTitle').textContent = 'Edit Card';
+            document.getElementById('cardSubmit').textContent = 'Save';
+            document.getElementById('cardId').value = cardId;
+            document.getElementById('cardColumnId').value = colId;
+            document.getElementById('cardTitle').value = title;
+            document.getElementById('cardDesc').value = desc;
+            document.getElementById('cardMoveSection').style.display = 'block';
+            document.getElementById('cardMoveColumn').value = colId;
+            document.getElementById('cardModal').classList.add('active');
+        }
+
+        function submitCard(e) {
+            e.preventDefault();
+            const id = document.getElementById('cardId').value;
+            const colId = document.getElementById('cardColumnId').value;
+            const title = document.getElementById('cardTitle').value;
+            const desc = document.getElementById('cardDesc').value;
+
+            if (id) {
+                const newColId = document.getElementById('cardMoveColumn').value;
+                fetch('/api/cards/' + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title, description: desc, column_id: parseInt(newColId)})
+                }).then(r => { if (r.ok) location.reload(); });
+            } else {
+                fetch('/api/columns/' + colId + '/cards', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title, description: desc})
+                }).then(r => { if (r.ok) location.reload(); });
+            }
+            return false;
+        }
+
+        function deleteCard(cardId) {
+            if (!confirm('Delete this card?')) return;
+            fetch('/api/cards/' + cardId, {method: 'DELETE'})
+                .then(r => { if (r.ok) location.reload(); });
+        }
+
+        // ── Column CRUD ──
+        function showAddColumn() {
+            document.getElementById('columnModalTitle').textContent = 'New Column';
+            document.getElementById('columnSubmit').textContent = 'Add';
+            document.getElementById('columnId').value = '';
+            document.getElementById('columnTitle').value = '';
+            document.getElementById('columnModal').classList.add('active');
+        }
+
+        function editColumn(colId, title) {
+            document.getElementById('columnModalTitle').textContent = 'Edit Column';
+            document.getElementById('columnSubmit').textContent = 'Save';
+            document.getElementById('columnId').value = colId;
+            document.getElementById('columnTitle').value = title;
+            document.getElementById('columnModal').classList.add('active');
+        }
+
+        function submitColumn(e) {
+            e.preventDefault();
+            const id = document.getElementById('columnId').value;
+            const title = document.getElementById('columnTitle').value;
+            const boardId = {{ board.id }};
+
+            if (id) {
+                fetch('/api/columns/' + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title})
+                }).then(r => { if (r.ok) location.reload(); });
+            } else {
+                fetch('/api/boards/' + boardId + '/columns', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title})
+                }).then(r => { if (r.ok) location.reload(); });
+            }
+            return false;
+        }
+
+        function deleteColumn(colId) {
+            if (!confirm('Delete this column and all its cards?')) return;
+            fetch('/api/columns/' + colId, {method: 'DELETE'})
+                .then(r => { if (r.ok) location.reload(); });
+        }
+
+        // ── Board ──
+        function deleteBoard() {
+            if (!confirm('Delete this entire board?')) return;
+            fetch('/api/boards/{{ board.id }}', {method: 'DELETE'})
+                .then(r => { if (r.ok) window.location.href = '/'; });
+        }
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', e => {
+                if (e.target === el) el.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>
