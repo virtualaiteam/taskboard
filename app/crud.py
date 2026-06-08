@@ -23,7 +23,6 @@ def create_board(db: Session, data: BoardCreate) -> Board:
     board = Board(title=data.title, description=data.description)
     db.add(board)
     db.flush()
-    # Create default columns
     for i, col_title in enumerate(["To Do", "In Progress", "Done"]):
         col = Column_(title=col_title, position=i, board_id=board.id)
         db.add(col)
@@ -95,6 +94,7 @@ def create_card(db: Session, column_id: int, data: CardCreate) -> Card | None:
     col = db.query(Column_).filter(Column_.id == column_id).first()
     if not col:
         return None
+    
     max_pos = db.query(Card.position).filter(Card.column_id == column_id).order_by(Card.position.desc()).first()
     position = (max_pos[0] + 1) if max_pos else 0
     card = Card(title=data.title, description=data.description, position=position, column_id=column_id)
