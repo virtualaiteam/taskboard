@@ -143,7 +143,7 @@ def api_delete_card(card_id: int, db: Session = Depends(get_db)):
 @app.get("/", response_class=HTMLResponse)
 def ui_index(request: Request, db: Session = Depends(get_db)):
     boards = crud.list_boards(db)
-    return templates.TemplateResponse("index.html", {"request": request, "boards": boards})
+    return templates.TemplateResponse(request, "index.html", {"boards": boards})
 
 
 @app.get("/board/{board_id}", response_class=HTMLResponse)
@@ -151,4 +151,4 @@ def ui_board(request: Request, board_id: int, db: Session = Depends(get_db)):
     board = crud.get_board(db, board_id)
     if not board:
         return HTMLResponse("Board not found", status_code=404)
-    return templates.TemplateResponse("board.html", {"request": request, "board": board})
+    return templates.TemplateResponse(request, "board.html", {"board": board})
