@@ -2,7 +2,7 @@
 
 A Kanban Board API with a modern UI, built as a demo for the **Autonomous AI Engineering Team** pipeline.
 
-**Live demo:** http://192.168.0.13:8001  
+**Live demo:** http://192.168.0.13:8000 → UI available on your LAN  
 **GitHub:** https://github.com/virtualaiteam/taskboard  
 **Error tracking:** Sentry — project `python-fastapi` under `ididify` org
 
