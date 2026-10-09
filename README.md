@@ -20,8 +20,11 @@ A Kanban Board API with a modern UI, built as a demo for the **Autonomous AI Eng
 
 - **Backend:** FastAPI (Python 3.12)
 - **Database:** SQLite (file-based, zero config)
-- **UI:** Server-rendered HTML + vanilla JS + CSS
+- **ORM:** SQLAlchemy 2.0+ (declarative models)
+- **Validation:** Pydantic v2 (request/response schemas)
+- **UI:** Server-rendered HTML + vanilla JS + CSS (htmx.org)
 - **Error Tracking:** Sentry SDK
+- **Server:** Uvicorn (ASGI)
 - **Deployment:** Docker Compose
 
 ## Quick Start
@@ -70,6 +73,52 @@ User → Browser (UI) → FastAPI → SQLite
                          ↓
                 Engineer Agent → Fix → Deploy
 ```
+
+### Project Structure
+
+```
+taskboard/
+├── app/
+│   ├── __init__.py
+│   ├── main.py          # FastAPI app, routes (API + UI), lifespan
+│   ├── models.py        # SQLAlchemy ORM models (Board, Column_, Card)
+│   ├── schemas.py       # Pydantic v2 request/response schemas
+│   ├── crud.py          # CRUD operations (business logic)
+│   ├── database.py      # SQLAlchemy engine, session, Base
+│   └── templates/
+│       ├── index.html   # Board list page
+│       └── board.html   # Kanban board view with drag-and-drop
+├── tests/
+│   └── test_app.py      # 54 pytest tests (schemas, models, CRUD)
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+### Layered Design
+
+The codebase follows a clean layered architecture:
+
+1. **Routes** (`main.py`) — HTTP layer. Defines API endpoints and UI templates. Delegates all business logic to the CRUD layer.
+2. **CRUD** (`crud.py`) — Business logic layer. Pure functions that operate on SQLAlchemy sessions. No HTTP knowledge.
+3. **Models** (`models.py`) — Domain entities. SQLAlchemy declarative models with relationships and cascade rules.
+4. **Schemas** (`schemas.py`) — Data contracts. Pydantic v2 models for request validation and response serialization.
+5. **Database** (`database.py`) — Infrastructure. Engine configuration, session factory, table creation.
+
+### Data Model
+
+```
+Board (1) ──< (N) Column_ (1) ──< (N) Card
+```
+
+- **Board**: `id`, `title`, `description`, `created_at`, `updated_at`
+- **Column_**: `id`, `title`, `position`, `board_id` (FK → boards)
+- **Card**: `id`, `title`, `description`, `position`, `column_id` (FK → columns)
+
+Cascade rules: deleting a board deletes all its columns and cards. Deleting a column deletes all its cards.
 
 ## Autonomous Pipeline
 
